@@ -2,34 +2,36 @@ import streamlit as st
 import pandas as pd
 
 # CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="Radar Gran 2026", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Radar Legislações Gran", page_icon="⚖️", layout="wide")
 
-# CABEÇALHO
-st.title("⚖️ Radar Legislativo Gran - Cronograma 2026")
-st.info("Monitorando itens marcados como 'Não' ou 'Analisar' no Visualping (Aba 2026).")
+# CABEÇALHO PERSONALIZADO
+st.title("⚖️ Radar Legislativo Gran - Monitoramento")
+st.info("Foco: Itens marcados como 'Não' ou 'Analisar' na **Aba Legislações**.")
 
-# DADOS DA PLANILHA
+# DADOS DAS LEIS (Você pode alterar os nomes abaixo conforme sua planilha)
 dados = [
-    {"Lei/Edital": "SEFA PA - Fiscal de Receitas", "Visualping": "Não", "Link": "https://www.sefa.pa.gov.br"},
-    {"Lei/Edital": "TJ MS - Analista Judiciário", "Visualping": "Analisar", "Link": "https://www.tjms.jus.br"},
-    {"Lei/Edital": "CLDF - Regimento Interno", "Visualping": "Analisar", "Link": "https://www.cl.df.gov.br"},
-    {"Lei/Edital": "PMDF - Legislação Específica", "Visualping": "Não", "Link": "https://www.pm.df.gov.br"}
+    {"Lei/Edital": "Lei Orgânica - DF", "Status": "Não", "Link": "https://www.sinj.df.gov.br"},
+    {"Lei/Edital": "Regimento Interno CLDF", "Status": "Analisar", "Link": "https://www.cl.df.gov.br"},
+    {"Lei/Edital": "Lei 8.112/90", "Status": "Não", "Link": "https://www.planalto.gov.br"},
+    {"{"Lei/Edital": "Legislação Específica - SEFA", "Status": "Analisar", "Link": "https://www.sefa.pa.gov.br"}
 ]
 df = pd.DataFrame(dados)
 
-# EXIBIÇÃO NO NOTEBOOK
+# EXIBIÇÃO DAS LEIS NO NOTEBOOK
+st.subheader("📋 Lista de Verificação Diária")
+
 for index, row in df.iterrows():
-    with st.expander(f"📍 {row['Lei/Edital']}"):
+    with st.expander(f"🔍 {row['Lei/Edital']}"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.write(f"**Status no Radar:** {row['Visualping']}")
+            st.write(f"**Status atual na Aba Legislações:** :red[{row['Status']}]")
         with col2:
-            st.link_button("Abrir Site Oficial", row['Link'])
+            st.link_button("Ver no Visualping", row['Link'])
         
-        if st.button("Marcar como Conferido hoje", key=f"btn_{index}"):
-            st.success(f"Conferência de {row['Lei/Edital']} registrada!")
+        if st.button("Confirmar conferência", key=f"lei_{index}"):
+            st.success(f"A lei {row['Lei/Edital']} foi verificada com sucesso!")
 
 # BARRA LATERAL
 st.sidebar.image("https://www.grancursosonline.com.br/images/logo-gran.png", width=150)
 st.sidebar.write("👤 **Analista:** Elaine")
-st.sidebar.write("📅 **Foco:** Cronograma 2026")
+st.sidebar.write("📌 **Setor:** Legislações")
