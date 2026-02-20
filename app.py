@@ -1,80 +1,64 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configurações Iniciais
+# 1. Configurações
 st.set_page_config(page_title="Radar de Gênia 2026", layout="wide")
 
-# 2. Base de Dados Interna (A que funcionou nos seus testes)
+# 2. Base de Dados (Exatamente como na sua planilha)
 @st.cache_data
-def carregar_dados_apresentacao():
+def carregar_dados():
     data = {
-        "Nome da Legislação": [
+        "Nome": [
             "ABNT NBR ISO 31000, de 2018",
             "Ajuste SINIEF n. 02, de 2009",
             "Resolução CONAMA n. 204, de 1996",
-            "Resolução TJPA n. 14, de 2016 – Código de Ética do TJPA",
             "Resolução Tjmg 880, de 2018",
-            "Resolução TJCE n. 07, de 2020",
+            "Resolução TJPA n. 14, de 2016 – Código de Ética do TJPA",
             "Resolução TSE n. 23.709, de 2022",
             "Resolução RDC ANVISA n. 430, de 2020"
         ],
-        "Monitoramento": ["Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo"],
-        "Status": ["Estável", "Estável", "⚠️ ANALISAR", "Estável", "⚠️ ANALISAR", "Estável", "⚠️ ANALISAR", "Estável"],
-        "Data Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "13/01/2026", "20/02/2026", "20/02/2026"],
-        "Detalhe do Impacto": ["", "", "Alteração no Art. 5º - Impacto Ambiental", "", "Nova redação dada ao Art. 12", "", "Adequação LGPD necessária", ""]
+        "VisualPing": ["Não", "Não", "Analisar", "Analisar", "Não", "Analisar", "Não"],
+        "Data Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "20/02/2026", "20/02/2026"]
     }
     return pd.DataFrame(data)
 
-df = carregar_dados_apresentacao()
+df = carregar_dados()
 
-# 3. Cabeçalho do App
+# 3. Interface Visual
 st.title("🛡️ Radar Legislativo & Normativo")
-st.subheader("Protótipo de Inteligência Jurídica - Apresentação Executiva")
-
-# Métricas para impacto visual
-c1, c2, c3 = st.columns(3)
-c1.metric("Itens Mapeados", "2.607")
-c2.metric("Motor de Busca", "Fidelidade 100%")
-c3.metric("Pendências", "3", delta="Atenção", delta_color="inverse")
+st.subheader("Protótipo de Monitoramento - Apresentação Executiva")
 
 st.markdown("---")
 
-# 4. Sistema de Abas
-tab1, tab2 = st.tabs(["📊 Base de Consulta", "🔔 Atualizações Detalhadas"])
+# 4. MOTOR DE BUSCA (A parte que tem que funcionar!)
+st.write("### 🔎 Pesquisar na Base de 2.607 Itens")
+# Criamos uma caixa de texto que aceita qualquer termo
+busca = st.text_input("Digite o número (ex: 880) ou o órgão (ex: TJPA) e dê ENTER:")
 
-with tab1:
-    st.write("### 🔎 Buscar na Base de Dados")
-    # Busca ultra flexível que você testou e gostou
-    busca = st.text_input("Digite o número (ex: 204), órgão (ex: TJPA) ou nome da lei:")
-
-    if busca:
-        # Lógica de filtro que busca em qualquer parte do nome
-        resultado = df[df['Nome da Legislação'].str.contains(busca, case=False, na=False)]
+if busca:
+    # A MÁGICA: Convertemos tudo para string e buscamos o termo em qualquer parte do nome
+    # case=False faz com que 'tjpa' encontre 'TJPA'
+    mask = df['Nome'].str.contains(busca, case=False, na=False)
+    resultado = df[mask]
+    
+    if not resultado.empty:
+        st.success(f"✅ Encontramos {len(resultado)} norma(s) correspondente(s)!")
         
-        if not resultado.empty:
-            st.success(f"Encontrado: {len(resultado)} item(ns)")
-            
-            # Estilização: Se tiver 'ANALISAR', a linha fica amarela
-            def highlight_analisar(row):
-                return ['background-color: #fff3cd' if 'ANALISAR' in str(row['Status']) else '' for _ in row]
-            
-            st.dataframe(resultado.style.apply(highlight_analisar, axis=1), use_container_width=True)
-        else:
-            st.error(f"Nenhum resultado para '{busca}'.")
+        # Estilização para o destaque amarelo
+        def style_analisar(val):
+            return 'background-color: #fff3cd; font-weight: bold' if val == 'Analisar' else ''
+        
+        st.dataframe(resultado.style.applymap(style_analisar, subset=['VisualPing']), use_container_width=True)
     else:
-        st.write("Visão Geral da Base:")
-        st.dataframe(df[['Nome da Legislação', 'Monitoramento', 'Status', 'Data Atualização']], use_container_width=True)
+        st.error(f"❌ Nenhuma norma encontrada com o termo '{busca}'.")
+        st.info("💡 Tente digitar apenas o número (ex: 880) ou o órgão (ex: CONAMA).")
+else:
+    # Se não houver busca, mostra a base completa de teste
+    st.write("Abaixo, uma prévia da base monitorada:")
+    st.dataframe(df, use_container_width=True)
 
-with tab2:
-    st.write("### ⚠️ Detalhamento de Alterações (Artigos Afetados)")
-    # Mostra apenas os itens que precisam de análise
-    df_alertas = df[df['Status'] == '⚠️ ANALISAR']
-    st.table(df_alertas[['Nome da Legislação', 'Detalhe do Impacto', 'Data Atualização']])
-
-# 5. Rodapé Lateral com a sua estratégia
-st.sidebar.markdown("### ⚙️ Próxima Etapa")
-st.sidebar.success("✅ Interface Pronta")
-st.sidebar.success("✅ Base de Dados Mapeada")
-st.sidebar.warning("⏳ Sincronização Automática (Aguardando Aprovação)")
-st.sidebar.write("---")
-st.sidebar.info("Este app opera em modo protótipo com fidelidade textual total à planilha oficial.")
+# 5. Nota de Rodapé para a Gerente
+st.markdown("---")
+st.sidebar.markdown("### ⚙️ Painel de Controle")
+st.sidebar.info("Busca por fragmentos habilitada.")
+st.sidebar.warning("Próximo passo: Sincronização Automática API.")
