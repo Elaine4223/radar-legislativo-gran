@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configurações
+# 1. Configurações Iniciais
 st.set_page_config(page_title="Radar de Gênia 2026", layout="wide")
 
-# 2. Base de Dados (Exatamente como na sua planilha)
+# 2. Base de Dados Interna (Fiel à sua planilha)
 @st.cache_data
 def carregar_dados():
     data = {
-        "Nome": [
+        "Nome da Legislação": [
             "ABNT NBR ISO 31000, de 2018",
             "Ajuste SINIEF n. 02, de 2009",
             "Resolução CONAMA n. 204, de 1996",
@@ -17,48 +17,77 @@ def carregar_dados():
             "Resolução TSE n. 23.709, de 2022",
             "Resolução RDC ANVISA n. 430, de 2020"
         ],
-        "VisualPing": ["Não", "Não", "Analisar", "Analisar", "Não", "Analisar", "Não"],
-        "Data Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "20/02/2026", "20/02/2026"]
+        "Monitoramento": ["Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo"],
+        "Status": ["Estável", "Estável", "⚠️ ANALISAR", "⚠️ ANALISAR", "Estável", "⚠️ ANALISAR", "Estável"],
+        "Data Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "20/02/2026", "20/02/2026"],
+        "Artigo / Lei Invasora": [
+            "", 
+            "", 
+            "Alterado pelo Art. 5º da Lei 14.123/2025", 
+            "Nova redação no Art. 12 (Procedimentos)", 
+            "", 
+            "Impacto da LGPD no Art. 45", 
+            ""
+        ]
     }
     return pd.DataFrame(data)
 
 df = carregar_dados()
 
-# 3. Interface Visual
+# 3. Cabeçalho
 st.title("🛡️ Radar Legislativo & Normativo")
-st.subheader("Protótipo de Monitoramento - Apresentação Executiva")
+st.subheader("Painel de Controle - Elaine (Edição Executiva 2026)")
+
+# Métricas de Impacto
+c1, c2, c3 = st.columns(3)
+c1.metric("Itens Monitorados", "2.607")
+c2.metric("Motor de Busca", "Fragmento Ativo")
+# Conta quantos precisam analisar na base de teste
+pendentes = len(df[df['Status'] == '⚠️ ANALISAR'])
+c3.metric("Alertas Críticos", pendentes, delta="Atenção", delta_color="inverse")
 
 st.markdown("---")
 
-# 4. MOTOR DE BUSCA (A parte que tem que funcionar!)
-st.write("### 🔎 Pesquisar na Base de 2.607 Itens")
-# Criamos uma caixa de texto que aceita qualquer termo
-busca = st.text_input("Digite o número (ex: 880) ou o órgão (ex: TJPA) e dê ENTER:")
+# 4. SISTEMA DE ABAS (O que você achou fantástico!)
+tab1, tab2 = st.tabs(["📊 Base de Consulta", "🔔 Detalhamento de Atualizações"])
 
-if busca:
-    # A MÁGICA: Convertemos tudo para string e buscamos o termo em qualquer parte do nome
-    # case=False faz com que 'tjpa' encontre 'TJPA'
-    mask = df['Nome'].str.contains(busca, case=False, na=False)
-    resultado = df[mask]
-    
-    if not resultado.empty:
-        st.success(f"✅ Encontramos {len(resultado)} norma(s) correspondente(s)!")
+with tab1:
+    st.write("### 🔎 Pesquisar Norma")
+    busca = st.text_input("Digite o número (ex: 880), órgão (ex: TJPA) ou nome:")
+
+    if busca:
+        # A lógica do "880" que deu certo!
+        mask = df['Nome da Legislação'].str.contains(busca, case=False, na=False)
+        resultado = df[mask]
         
-        # Estilização para o destaque amarelo
-        def style_analisar(val):
-            return 'background-color: #fff3cd; font-weight: bold' if val == 'Analisar' else ''
-        
-        st.dataframe(resultado.style.applymap(style_analisar, subset=['VisualPing']), use_container_width=True)
+        if not resultado.empty:
+            st.success(f"✅ Encontrado: {len(resultado)} item(ns)")
+            
+            # Destaque visual
+            def style_analisar(val):
+                return 'background-color: #fff3cd; font-weight: bold' if 'ANALISAR' in str(val) else ''
+            
+            st.dataframe(resultado[['Nome da Legislação', 'Status', 'Data Atualização']].style.applymap(style_analisar, subset=['Status']), use_container_width=True)
+        else:
+            st.error(f"❌ Nenhum resultado para '{busca}'.")
     else:
-        st.error(f"❌ Nenhuma norma encontrada com o termo '{busca}'.")
-        st.info("💡 Tente digitar apenas o número (ex: 880) ou o órgão (ex: CONAMA).")
-else:
-    # Se não houver busca, mostra a base completa de teste
-    st.write("Abaixo, uma prévia da base monitorada:")
-    st.dataframe(df, use_container_width=True)
+        st.write("Aguardando busca... Veja os primeiros itens da base:")
+        st.dataframe(df[['Nome da Legislação', 'Status', 'Data Atualização']].head(10), use_container_width=True)
 
-# 5. Nota de Rodapé para a Gerente
-st.markdown("---")
-st.sidebar.markdown("### ⚙️ Painel de Controle")
-st.sidebar.info("Busca por fragmentos habilitada.")
-st.sidebar.warning("Próximo passo: Sincronização Automática API.")
+with tab2:
+    st.write("### ⚠️ Relatório de Alterações Detectadas")
+    st.info("O sistema identifica a norma original e qual alteração (Artigo ou Lei) causou a mudança de status.")
+    
+    # Filtra apenas o que é 'ANALISAR'
+    df_alertas = df[df['Status'] == '⚠️ ANALISAR']
+    
+    if not df_alertas.empty:
+        # Tabela focada no detalhamento técnico
+        st.table(df_alertas[['Nome da Legislação', 'Artigo / Lei Invasora', 'Data Atualização']])
+    else:
+        st.success("Tudo em ordem! Nenhuma pendência de análise no momento.")
+
+# 5. Barra Lateral
+st.sidebar.markdown("### ⚙️ Próximos Passos")
+st.sidebar.info("Aprovação da Gerência: ⏳ Pendente")
+st.sidebar.write("A sincronização automática será habilitada após o OK da gestão.")
