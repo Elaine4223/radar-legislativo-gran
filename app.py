@@ -1,66 +1,88 @@
 import streamlit as st
 import pandas as pd
+import unicodedata
 import os
 
-# 1. Configurações Iniciais
+# Configuração da Página
 st.set_page_config(page_title="Radar de Gênia 2026", layout="wide")
 
-st.title("🛡️ Radar Legislativo & Normativo")
-st.subheader("Consulta Integrada à Planilha Oficial")
+# Função para remover acentos e facilitar a busca
+def normalizar(texto):
+    if not isinstance(texto, str):
+        return str(texto)
+    return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn').lower()
 
-# 2. Função para Carregar o Arquivo que você subiu
+# Título
+st.title("🛡️ Radar Legislativo & Normativo")
+st.subheader("Sistema de Monitoramento Integrado - Versão 2026")
+
+# 1. Carregamento Blindado do Arquivo
 @st.cache_data
-def load_excel_data():
-    file_path = 'Atualizações Legislações 2026.xlsx - Planilha1.csv'
-    if os.path.exists(file_path):
-        # Lendo o CSV com a grafia exata
-        df = pd.read_csv(file_path)
+def carregar_planilha():
+    nome_arquivo = 'Atualizações Legislações 2026.xlsx - Planilha1.csv'
+    if os.path.exists(nome_arquivo):
+        df = pd.read_csv(nome_arquivo)
+        # Limpa nomes de colunas ocultas
+        df.columns = [c.strip() for c in df.columns]
         return df
     else:
-        st.error("Arquivo não encontrado. Certifique-se de que o CSV está na mesma pasta do app.")
-        return pd.DataFrame()
+        # Se o arquivo não for achado, tentamos o primeiro CSV da pasta
+        arquivos = [f for f in os.listdir('.') if f.endswith('.csv')]
+        if arquivos:
+            return pd.read_csv(arquivos[0])
+        return None
 
-df = load_data = load_excel_data()
+df = carregar_planilha()
 
-# 3. Interface de Busca
-if not df.empty:
-    st.write(f"📊 Base carregada com sucesso: **{len(df)} normas monitoradas.**")
+if df is not None:
+    # 2. Métricas Iniciais
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Base Total", f"{len(df)} itens")
+    c2.metric("Status", "Sincronizado")
     
-    st.markdown("---")
-    st.write("### 🔎 Pesquisar Norma")
-    # Campo de busca que aceita qualquer parte do nome
-    busca = st.text_input("Digite o número da lei ou nome do órgão (Ex: 204, TJPA, SINIEF):")
+    # Identifica pendências de análise
+    col_status = 'VisualPing' if 'VisualPing' in df.columns else df.columns[1]
+    pendentes = len(df[df[col_status].astype(str).str.contains('Analisar', case=False, na=False)])
+    c3.metric("Alertas de Hoje", pendentes, delta="Pendentes", delta_color="inverse")
 
-    if busca:
-        # Lógica de Filtro "Contém": procura o termo em qualquer lugar da coluna 'Nome'
-        # Convertemos tudo para texto para evitar erro com números
-        filtro = df['Nome'].astype(str).str.contains(busca, case=False, na=False)
-        resultado = df[filtro]
+    st.markdown("---")
+
+    # 3. Motor de Busca Inteligente
+    st.write("### 🔎 Pesquisar Norma")
+    busca_usuario = st.text_input("Digite o número, órgão ou nome (Ex: 204, TJPA, SINIEF):")
+
+    if busca_usuario:
+        termo = normalizar(busca_usuario)
+        
+        # Filtra em qualquer parte do nome
+        col_nome = 'Nome' if 'Nome' in df.columns else df.columns[0]
+        # Aplica a normalização em toda a coluna para busca perfeita
+        resultado = df[df[col_nome].apply(normalizar).str.contains(termo, na=False)]
         
         if not resultado.empty:
-            st.success(f"✅ Encontramos {len(resultado)} item(ns).")
+            st.success(f"✅ Sucesso! Encontramos {len(resultado)} resultado(s).")
             
-            # Estilização: Se na coluna 'VisualPing' estiver 'Analisar', fica amarelo
-            def destacar_analise(row):
-                return ['background-color: #fff3cd' if row['VisualPing'] == 'Analisar' else '' for _ in row]
+            # Estilização Profissional
+            def colorir(row):
+                val = str(row.get(col_status, '')).lower()
+                return ['background-color: #fff3cd' if 'analisar' in val else '' for _ in row]
 
-            st.dataframe(resultado.style.apply(destacar_analise, axis=1), use_container_width=True)
+            st.dataframe(resultado.style.apply(colorir, axis=1), use_container_width=True)
         else:
-            st.error(f"❌ Nenhuma norma encontrada para '{busca}'.")
-            st.info("💡 Dica: Verifique se o número está correto ou tente um termo mais curto.")
+            st.error(f"Nenhum resultado encontrado para '{busca_usuario}'.")
+            st.info("💡 Tente apenas o número (ex: 880) ou o órgão (ex: TJMG).")
     else:
-        # Se não houver busca, mostra apenas as primeiras 10 para não poluir a tela
-        st.write("Aguardando busca... Abaixo, uma prévia da base:")
-        st.dataframe(df.head(10), use_container_width=True)
+        st.write("Visualize os itens da sua base:")
+        st.dataframe(df.head(15), use_container_width=True)
 
-# 4. Aba de Atualizações (O que a gerente quer ver)
-st.markdown("---")
-with st.expander("🔔 Ver apenas itens para ANALISAR"):
-    df_analisar = df[df['VisualPing'] == 'Analisar']
-    if not df_analisar.empty:
-        st.dataframe(df_analisar, use_container_width=True)
-    else:
-        st.write("Nenhuma atualização pendente no momento.")
+    # 4. Aba de Alertas (Diferencial da Gênia)
+    with st.expander("🔔 RESUMO EXECUTIVO: Itens para Analisar"):
+        df_alerta = df[df[col_status].astype(str).str.contains('Analisar', case=False, na=False)]
+        st.dataframe(df_alerta)
 
-st.sidebar.warning("Regra de Ouro: Fidelidade à Planilha")
-st.sidebar.info("Este app lê diretamente o seu arquivo CSV.")
+else:
+    st.error("❌ Atenção: Não conseguimos ler o arquivo CSV. Verifique se ele está no mesmo local que o app.py.")
+
+# Rodapé
+st.sidebar.markdown("### ⚙️ Painel Elaine")
+st.sidebar.write("Busca Habilitada: Fragmentos e Números")
