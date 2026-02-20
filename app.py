@@ -1,47 +1,55 @@
 import streamlit as st
 import pandas as pd
 
+# 1. Configurações
 st.set_page_config(page_title="Radar de Gênia 2026", layout="wide")
 
+# 2. Dados da sua Planilha (Amostra Real da sua Cópia)
+@st.cache_data
+def load_data():
+    data = {
+        "Nome": [
+            "ABNT NBR ISO 31000, de 2018",
+            "Ajuste SINIEF n. 02, de 2009",
+            "Resolução Tjmg 880, de 2018",
+            "Resolução TJPA n. 14, de 2016",
+            "Resolução TJCE n. 07, de 2020",
+            "Resolução TSE n. 23.709, de 2022"
+        ],
+        "VisualPing": ["Não", "Analisar", "Analisar", "Não", "Não", "Analisar"],
+        "Atualização": ["", "Art. 1º alterado", "Nova redação Art. 12", "", "", "Update LGPD"],
+        "Data": ["2026-01-05", "2026-01-15", "2026-01-13", "2026-01-13", "2026-01-13", "2026-02-20"]
+    }
+    return pd.DataFrame(data)
+
+df = load_data()
+
+# 3. Interface
 st.title("🛡️ Radar Legislativo & Normativo")
-st.subheader("Inteligência e Monitoramento - Elaine (Edição 2026)")
+st.markdown("---")
 
-# --- BASE DE DADOS REAL (Simulando sua planilha) ---
-# Aqui listamos alguns exemplos da sua planilha para o teste de busca
-dados_completos = [
-    {"Nome": "ABNT NBR ISO 31000, de 2018", "Status": "✅ Estável", "Data": "05/01/2026", "Update": ""},
-    {"Nome": "Ajuste SINIEF n. 02, de 2009", "Status": "⚠️ ANALISAR", "Data": "15/01/2026", "Update": "Alterado pelo Ajuste 50/2025"},
-    {"Nome": "Resolução Tjmg 880, de 2018", "Status": "⚠️ ANALISAR", "Data": "13/01/2026", "Update": "Nova redação Art. 12"},
-    {"Nome": "Resolução TJPA n. 14, de 2016", "Status": "✅ Estável", "Data": "13/01/2026", "Update": ""},
-    {"Nome": "Resolução TJCE n. 07, de 2020", "Status": "✅ Estável", "Data": "13/01/2026", "Update": ""}
-]
-df_total = pd.DataFrame(dados_completos)
-
-# --- SISTEMA DE ABAS ---
-tab1, tab2 = st.tabs(["📊 Base de Monitoramento", "🔔 Atualizações Recentes"])
+tab1, tab2 = st.tabs(["📊 Base Completa", "🔔 Alertas (Analisar)"])
 
 with tab1:
-    st.write("### 🔍 Pesquisar na Base Geral")
-    # O PULO DO GATO: A busca agora filtra a tabela abaixo
-    busca = st.text_input("Digite o nome da norma (Ex: TJPA ou 31000):")
+    st.write("### 🔍 Pesquisa Rápida")
+    # O segredo está aqui: busca flexível
+    busca = st.text_input("Digite qualquer parte do nome da lei:")
     
     if busca:
-        # Filtra a tabela ignorando maiúsculas/minúsculas
-        resultado = df_total[df_total['Nome'].str.contains(busca, case=False)]
+        # Ele procura o termo dentro do nome, ignorando se é maiúsculo ou minúsculo
+        resultado = df[df['Nome'].str.contains(busca, case=False, na=False)]
+        
         if not resultado.empty:
-            st.success(f"Encontrado: {len(resultado)} item(ns)")
+            st.success(f"Encontrado(s) {len(resultado)} item(ns):")
             st.dataframe(resultado, use_container_width=True)
         else:
-            st.error("Nenhuma norma encontrada com esse nome na base de teste.")
+            st.error(f"Nenhum resultado para '{busca}'. Tente um termo mais curto (ex: apenas o número ou o órgão).")
     else:
-        st.dataframe(df_total, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
 with tab2:
-    st.write("### ⚠️ Detalhamento de Alterações")
-    # Filtra apenas o que é "ANALISAR" para aparecer nesta aba
-    df_alertas = df_total[df_total['Status'] == "⚠️ ANALISAR"]
-    st.warning("Itens que exigem revisão jurídica imediata:")
-    st.table(df_alertas[['Nome', 'Update', 'Data']])
+    st.write("### ⚠️ Itens para Análise")
+    df_alertas = df[df['VisualPing'] == 'Analisar']
+    st.dataframe(df_alertas.style.applymap(lambda x: 'background-color: #fff3cd', subset=['VisualPing']), use_container_width=True)
 
-# Rodapé
-st.sidebar.info(f"Monitorando {len(df_total)} normas de teste.")
+st.sidebar.info("Dica: Digite apenas o número da lei para uma busca mais rápida.")
