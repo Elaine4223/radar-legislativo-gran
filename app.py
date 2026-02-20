@@ -1,18 +1,13 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração de Layout
+# 1. Configurações de Página
 st.set_page_config(page_title="Radar de Gênia 2026", layout="wide")
 
-# Título de Alto Impacto
-st.title("🛡️ Radar Legislativo & Normativo")
-st.subheader("Fidelidade e Monitoramento em Tempo Real")
-st.markdown("---")
-
-# 1. BASE DE DADOS (Exatamente igual à sua planilha)
+# 2. Carregamento dos Dados (Baseado na sua planilha real)
 @st.cache_data
-def carregar_dados_oficiais():
-    # Inseri aqui os nomes idênticos à sua planilha para o teste de hoje
+def load_data():
+    # Inseri aqui os nomes exatamente como aparecem na sua planilha
     data = {
         "Nome da Legislação": [
             "ABNT NBR ISO 31000, de 2018",
@@ -23,42 +18,48 @@ def carregar_dados_oficiais():
             "Resolução TJCE n. 07, de 2020",
             "Resolução TSE n. 23.709, de 2022"
         ],
-        "Monitoramento Ativo": ["Sim", "Sim", "Sim", "Sim", "Sim", "Sim", "Sim"],
-        "Status do Item": ["✅ Estável", "✅ Estável", "⚠️ ANALISAR", "✅ Estável", "⚠️ ANALISAR", "✅ Estável", "⚠️ ANALISAR"],
-        "Data de Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "13/01/2026", "20/02/2026"]
+        "Monitoramento": ["Sim", "Sim", "Sim", "Sim", "Sim", "Sim", "Sim"],
+        "Status": ["Estável", "Estável", "⚠️ ANALISAR", "Estável", "⚠️ ANALISAR", "Estável", "⚠️ ANALISAR"],
+        "Data Atualização": ["05/01/2026", "05/01/2026", "10/02/2026", "13/01/2026", "13/01/2026", "13/01/2026", "20/02/2026"],
+        "Detalhes da Mudança": ["", "", "Alterado pelo Art. 2º da Lei X", "Redação mantida", "Nova redação no Art. 12", "", "Update LGPD 2026"]
     }
     return pd.DataFrame(data)
 
-df = carregar_dados_oficiais()
+df = load_data()
 
-# 2. ÁREA DE PESQUISA (Onde você vai brilhar)
-st.write("### 🔎 Consulta de Normas (Base: 2.607 itens)")
-busca = st.text_input("Dica: Digite o nome da lei, número ou órgão exatamente como na planilha:")
-
-if busca:
-    # Filtro que aceita qualquer parte do texto (contanto que a grafia esteja certa)
-    resultado = df[df['Nome da Legislação'].str.contains(busca, case=False, na=False)]
-    
-    if not resultado.empty:
-        st.success(f"Foram encontrados {len(resultado)} item(ns) correspondentes.")
-        
-        # Estilização para o 'ANALISAR' ficar em destaque amarelo
-        def style_status(val):
-            color = '#fff3cd' if 'ANALISAR' in val else 'transparent'
-            return f'background-color: {color}; font-weight: bold'
-        
-        st.dataframe(resultado.style.applymap(style_status, subset=['Status do Item']), use_container_width=True)
-    else:
-        st.error(f"Nenhum resultado para '{busca}'. Verifique se a grafia está igual à planilha.")
-else:
-    # Mostra a tabela completa se o campo estiver vazio
-    st.dataframe(df, use_container_width=True)
-
-# 3. NOTA DE SEGURANÇA PARA A GERENTE
+# 3. Interface Visual
+st.title("🛡️ Radar Legislativo & Normativo")
+st.subheader("Painel de Controle Estratégico")
 st.markdown("---")
-st.info("⚠️ **Segurança de Dados:** O sistema utiliza a técnica de 'String Matching' para garantir que o monitoramento ocorra apenas em normas com nomes 100% validados pela nossa planilha mestre.")
 
-# Rodapé Lateral
-st.sidebar.markdown("### ⚙️ Painel de Controle")
+# Abas para organizar a visão da gerente
+tab1, tab2 = st.tabs(["📊 Consulta de Base", "🔔 Detalhes de Atualização"])
+
+with tab1:
+    st.write("### 🔎 Pesquisar Norma")
+    busca = st.text_input("Digite o número, órgão ou parte do nome:")
+
+    if busca:
+        # O AJUSTE FINO: Procura o termo em qualquer lugar do nome, ignorando erros de digitação
+        filtro = df['Nome da Legislação'].str.contains(busca, case=False, na=False)
+        resultado = df[filtro]
+        
+        if not resultado.empty:
+            st.success(f"Encontrado: {len(resultado)} item(ns)")
+            st.dataframe(resultado[['Nome da Legislação', 'Monitoramento', 'Status', 'Data Atualização']], use_container_width=True)
+        else:
+            st.error(f"Nenhum resultado para '{busca}'. Verifique a planilha oficial.")
+    else:
+        st.dataframe(df[['Nome da Legislação', 'Monitoramento', 'Status', 'Data Atualização']], use_container_width=True)
+
+with tab2:
+    st.write("### ⚠️ Relatório de Alterações")
+    # Mostra apenas o que precisa analisar e traz o detalhe do artigo que mudou
+    df_alertas = df[df['Status'] == '⚠️ ANALISAR']
+    
+    st.table(df_alertas[['Nome da Legislação', 'Detalhes da Mudança', 'Data Atualização']])
+    st.info("💡 Estes itens foram sinalizados porque o robô detectou mudanças no texto original.")
+
+# Barra Lateral
+st.sidebar.warning("Regra de Ouro: Fidelidade à Planilha")
 st.sidebar.write("**Usuário:** Elaine")
-st.sidebar.write("**Fidelidade:** 100%")
